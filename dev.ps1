@@ -310,10 +310,20 @@ try {
       continue
     }
     $usage = Get-Content $hint -Raw
-    $found = @([regex]::Matches($usage, 'find_package\s*\(\s*([A-Za-z][A-Za-z0-9_.+-]*)') |
-      ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
-    $linked = @([regex]::Matches($usage, 'target_link_libraries\s*\(\s*[A-Za-z_][A-Za-z0-9_-]*\s+(?:PRIVATE|PUBLIC|INTERFACE)\s+([A-Za-z][A-Za-z0-9_.:+-]*)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase) |
-      ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -notmatch '(?i)(header.only|::test)' } | Select-Object -Unique)
+    $found = New-Object 'System.Collections.Generic.List[string]'
+    $linked = New-Object 'System.Collections.Generic.List[string]'
+    $fm = [regex]::Matches($usage, 'find_package\s*\(\s*([A-Za-z][A-Za-z0-9_.+-]*)')
+    foreach ($match in $fm) {
+      $name = $match.Groups[1].Value
+      if (-not $found.Contains($name)) { $found.Add($name) }
+    }
+    $lm = [regex]::Matches($usage, 'target_link_libraries\s*\(\s*[A-Za-z_][A-Za-z0-9_-]*\s+(?:PRIVATE|PUBLIC|INTERFACE)\s+([A-Za-z][A-Za-z0-9_.:+-]*)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    foreach ($match in $lm) {
+      $name = $match.Groups[1].Value
+      if ($name -notmatch '(?i)(header.only|::test)' -and -not $linked.Contains($name)) {
+        $linked.Add($name)
+      }
+    }
     if ($found.Count -eq 0 -or $linked.Count -eq 0) {
       Write-Host "Notice: $p may be header-only or requires custom CMake linking."
       continue
