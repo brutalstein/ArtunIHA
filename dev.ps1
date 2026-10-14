@@ -231,7 +231,12 @@ try {
       Ensure-Core
       Ensure-Vcpkg
       if (Test-Path (Join-Path $root "pixi.toml")) { Ensure-Ros }
-      if (Test-Path (Join-Path $root "mavsdk.version")) { Ensure-Mavsdk }
+      if (-not $ci) {
+        Ensure-Mavsdk
+        Ensure-Ros
+      } else {
+        if (Test-Path (Join-Path $root "mavsdk.version")) { Ensure-Mavsdk }
+      }
       Configure
       Write-Host "Setup ready. VS Code CMake Tools provides IntelliSense; use ./dev run."
     }
