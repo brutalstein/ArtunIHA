@@ -1,1 +1,6 @@
-{"name":"artun-iha","version-string":"0.1.0","dependencies":[]}
+{
+  "name": "artun-iha",
+  "version-string": "0.1.0",
+  "dependencies": [],
+  "builtin-baseline": "44ccfd88b3eca6929d6d16398c7b19945c29a5f6"
+}
