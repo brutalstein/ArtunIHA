@@ -13,6 +13,9 @@ $vcpkg = Join-Path $tools "vcpkg"
 $manifest = Join-Path $root "vcpkg.json"
 $ci = ($Name -eq "--ci" -or $Rest -contains "--ci")
 
+function Save-Text([string]$path, [string]$contents) {
+  [System.IO.File]::WriteAllText($path, $contents, [System.Text.UTF8Encoding]::new($false))
+}
 function Refresh-Path {
   $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
               [Environment]::GetEnvironmentVariable("Path", "User") + ";" + $env:Path
@@ -91,7 +94,7 @@ function Ensure-Vcpkg {
     $sha = (& $git -C $vcpkg rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0) { throw "Cannot determine vcpkg registry revision." }
     $obj | Add-Member -NotePropertyName "builtin-baseline" -NotePropertyValue $sha
-    $obj | ConvertTo-Json -Depth 20 | Set-Content -Encoding UTF8 $manifest
+    Save-Text $manifest (($obj | ConvertTo-Json -Depth 20) + [Environment]::NewLine)
     Write-Host "Pinned vcpkg baseline $sha; commit vcpkg.json for reproducibility."
   }
 }
@@ -103,7 +106,7 @@ function Ensure-Ros {
   Ensure-Pixi
   $pixiManifest = Join-Path $root "pixi.toml"
   if (-not (Test-Path $pixiManifest)) {
-    @'
+    $pixiText = @'
 [workspace]
 name = "artun-iha-ros2"
 channels = ["https://prefix.dev/robostack-jazzy", "https://prefix.dev/conda-forge"]
@@ -111,7 +114,8 @@ platforms = ["win-64"]
 
 [dependencies]
 ros-jazzy-desktop = "*"
-'@ | Set-Content -Encoding UTF8 $pixiManifest
+'@
+    Save-Text $pixiManifest $pixiText
   }
   Exec (Tool "pixi") @("install", "--manifest-path", $pixiManifest)
 }
@@ -120,7 +124,11 @@ function Ensure-Mavsdk {
   if (Get-ChildItem $dest -Filter "MAVSDKConfig.cmake" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1) {
     Write-Host "MAVSDK already installed." ; return
   }
-  $release = Invoke-RestMethod -Uri "https://api.github.com/repos/mavlink/MAVSDK/releases/latest" -Headers @{ "User-Agent" = "ArtunIHA-dev" }
+  $lock = Join-Path $root "mavsdk.version"
+  $api = if (Test-Path $lock) {
+    "https://api.github.com/repos/mavlink/MAVSDK/releases/tags/$((Get-Content $lock -Raw).Trim())"
+  } else { "https://api.github.com/repos/mavlink/MAVSDK/releases/latest" }
+  $release = Invoke-RestMethod -Uri $api -Headers @{ "User-Agent" = "ArtunIHA-dev" }
   $asset = $release.assets | Where-Object { $_.name -match "(?i)mavsdk.*windows.*x64.*release.*\.zip$" } | Select-Object -First 1
   if (-not $asset) { throw "No matching Windows x64 C++ MAVSDK archive in the latest official release." }
   New-Item -Force -ItemType Directory $dest | Out-Null
@@ -132,7 +140,8 @@ function Ensure-Mavsdk {
   if (-not (Get-ChildItem $dest -Filter "MAVSDKConfig.cmake" -Recurse | Select-Object -First 1)) {
     throw "MAVSDK archive unpacked but MAVSDKConfig.cmake not found."
   }
-  Write-Host "Installed official MAVSDK $($release.tag_name)."
+  Save-Text $lock ($release.tag_name + [Environment]::NewLine)
+  Write-Host "Installed official MAVSDK $($release.tag_name); commit mavsdk.version."
 }
 function Configure {
   $cmake = Tool "cmake"
@@ -184,6 +193,7 @@ try {
       Ensure-Core
       Ensure-Vcpkg
       if (Test-Path (Join-Path $root "pixi.toml")) { Ensure-Ros }
+      if (Test-Path (Join-Path $root "mavsdk.version")) { Ensure-Mavsdk }
       Configure
       Write-Host "Setup ready. VS Code CMake Tools provides IntelliSense; use ./dev run."
     }
@@ -199,7 +209,7 @@ try {
           $names = @($obj.dependencies | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.name } })
           if ($names -notcontains $Name) {
             $obj.dependencies = @($obj.dependencies) + @($Name)
-            $obj | ConvertTo-Json -Depth 20 | Set-Content -Encoding UTF8 $manifest
+            Save-Text $manifest (($obj | ConvertTo-Json -Depth 20) + [Environment]::NewLine)
           }
         }
       }
@@ -212,7 +222,7 @@ try {
       }
       $dest = Join-Path $root "src\$Name"
       if (Test-Path $dest) { throw "Already exists: $Name" }
-      "// $Name" | Set-Content -Encoding UTF8 $dest
+      Save-Text $dest "// $Name`n"
       if (Test-Path (Join-Path $vcpkg "vcpkg.exe")) { Configure }
       Write-Host "Created src/$Name (included automatically by CMake)."
     }
