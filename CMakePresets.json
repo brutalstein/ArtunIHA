@@ -9,7 +9,9 @@
       "binaryDir": "${sourceDir}/.artun/build",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/.artun/tools/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_INSTALLED_DIR": "${sourceDir}/.artun/vcpkg_installed"
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/.artun/vcpkg_installed",
+        "CMAKE_PREFIX_PATH": "${sourceDir}/.pixi/envs/default/Library",
+        "MAVSDK_DIR": "${sourceDir}/.artun/sdk/mavsdk/lib/cmake/MAVSDK"
       }
     }
   ],
