@@ -1,0 +1,7 @@
+.artun/
+.pixi/
+pixi.lock
+.vs/
+build/
+*.user
+*.suo
