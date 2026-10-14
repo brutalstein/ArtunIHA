@@ -13,6 +13,16 @@ $vcpkg = Join-Path $tools "vcpkg"
 $manifest = Join-Path $root "vcpkg.json"
 $ci = ($Name -eq "--ci" -or $Rest -contains "--ci")
 
+function File-SHA256([string]$path) {
+  $stream = [System.IO.File]::OpenRead($path)
+  $hasher = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    return ([System.BitConverter]::ToString($hasher.ComputeHash($stream))).Replace("-", "")
+  } finally {
+    $hasher.Dispose()
+    $stream.Dispose()
+  }
+}
 function Save-Text([string]$path, [string]$contents) {
   [System.IO.File]::WriteAllText($path, $contents, [System.Text.UTF8Encoding]::new($false))
 }
@@ -113,7 +123,7 @@ function Ensure-Pixi {
   Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $binary -Headers @{ "User-Agent" = "ArtunIHA-dev" }
   if ($asset.digest -match "^sha256:([0-9a-fA-F]{64})$") {
     $expected = $Matches[1]
-    if ((Get-FileHash $binary -Algorithm SHA256).Hash -ne $expected) {
+    if ((File-SHA256 $binary) -ne $expected) {
       Remove-Item $binary -Force -ErrorAction SilentlyContinue
       throw "Pixi archive checksum failed."
     }
@@ -159,7 +169,7 @@ function Ensure-Mavsdk {
     Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $archive -Headers @{ "User-Agent" = "ArtunIHA-dev" }
     if ($asset.digest -match "^sha256:([0-9a-fA-F]{64})$") {
       $expected = $Matches[1]
-      if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne $expected) {
+      if ((File-SHA256 $archive) -ne $expected) {
         throw "MAVSDK archive checksum failed."
       }
     }
