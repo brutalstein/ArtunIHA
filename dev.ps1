@@ -339,7 +339,7 @@ function Run-App {
       foreach ($b in $bins) { $env:Path = $b.FullName + ";" + $env:Path }
     }
     if (Test-Path (Join-Path $root "pixi.toml")) {
-      Exec (Tool "pixi") @("run", "--manifest-path", (Join-Path $root "pixi.toml"), "--", $exe)
+      Exec (Tool "pixi") @("run", "--manifest-path", (Join-Path $root "pixi.toml"), "--", $exe.Replace("\", "/"))
     } else { Exec $exe @() }
   } finally { $env:Path = $oldPath }
 }
