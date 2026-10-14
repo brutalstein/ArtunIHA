@@ -107,21 +107,32 @@ function Ensure-CMake {
   $expected = $Matches[1]
   New-Item -ItemType Directory -Force $state | Out-Null
   $archive = Join-Path $state "cmake.zip"
-  $unpack = Join-Path $state "cmake-unpack"
+  $destination = Join-Path $tools "cmake"
   try {
-    Invoke-WebRequest $asset.browser_download_url -OutFile $archive -UseBasicParsing
+    Write-Host "Downloading official CMake $version from Kitware..."
+    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $archive -UseBasicParsing
     if ((File-SHA256 $archive) -ne $expected) { throw "CMake SHA256 mismatch" }
-    Expand-Archive $archive $unpack -Force
-    $exe = Get-ChildItem $unpack -Filter cmake.exe -Recurse -File | Where-Object { $_.Directory.Name -eq "bin" } | Select-Object -First 1
-    if (-not $exe) { throw "Downloaded CMake archive has no bin/cmake.exe" }
-    $source = Split-Path $exe.DirectoryName -Parent
-    $destination = Join-Path $tools "cmake"
-    if (Test-Path $destination) { Remove-Item $destination -Recurse -Force }
-    Move-Item $source $destination
-  } finally {
-    Remove-Item $archive -ErrorAction SilentlyContinue
-    Remove-Item $unpack -Recurse -Force -ErrorAction SilentlyContinue
-  }
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($archive)
+    try {
+      $prefix = "cmake-$version-windows-x86_64/"
+      foreach ($entry in $zip.Entries) {
+        $full = $entry.FullName
+        if (-not $full.StartsWith($prefix, [StringComparison]::Ordinal)) { continue }
+        $relative = $full.Substring($prefix.Length)
+        if (-not ($relative.StartsWith("bin/") -or
+                  $relative.StartsWith("share/cmake-3.31/Modules/") -or
+                  $relative.StartsWith("share/cmake-3.31/Templates/"))) { continue }
+        if (-not $entry.Name) { continue }
+        $output = Join-Path $destination ($relative.Replace("/", "\"))
+        $folder = Split-Path $output -Parent
+        New-Item -ItemType Directory -Force $folder | Out-Null
+        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $output, $true)
+      }
+    } finally { $zip.Dispose() }
+  } finally { Remove-Item $archive -Force -ErrorAction SilentlyContinue }
+  if (-not (Test-Path $portable)) { throw "Portable CMake extraction did not create $portable" }
   Write-Host "Pinned portable CMake $version ready (ignores MSYS2/Conda PATH)."
 }
 
@@ -403,6 +414,8 @@ try {
     default { Write-Host "Commands: ./dev setup | install <ros2|mavsdk|port> | add <name.cpp> [--no-header] | sync | run | doctor" }
   }
 } catch {
+  Write-Host "FAILED AT: $($_.ScriptStackTrace)"
+  Write-Host "DETAILS: $($_.Exception.ToString())"
   Write-Error $_
   exit 1
 }
