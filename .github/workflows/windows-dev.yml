@@ -1,0 +1,60 @@
+name: Windows dev automation smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: windows-dev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: windows-2022
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup toolchain and IntelliSense configuration
+        shell: pwsh
+        run: ./dev.cmd setup --ci
+      - name: Add C++ file and vcpkg package
+        shell: pwsh
+        run: |
+          ./dev.cmd add ci_smoke.cpp
+          ./dev.cmd install fmt
+          @'
+          #include <fmt/format.h>
+          #include <string>
+          std::string artun_fmt_link_probe() { return fmt::format("value={}", 42); }
+          '@ | Set-Content -Path src/ci_smoke.cpp -Encoding ascii
+      - name: Install official MAVSDK C++ release
+        shell: pwsh
+        run: ./dev.cmd install mavsdk
+      - name: Install project-local ROS 2 via Pixi
+        shell: pwsh
+        run: ./dev.cmd install ros2
+      - name: Verify ROS 2 and MAVSDK C++ headers and linkage
+        shell: pwsh
+        run: |
+          @'
+          #include <rclcpp/rclcpp.hpp>
+          #include <std_msgs/msg/float32.hpp>
+          #include <mavsdk/mavsdk.hpp>
+          void artun_ci_compile_probe() {
+              auto options = rclcpp::NodeOptions{};
+              (void)options;
+              auto config = mavsdk::Mavsdk::Configuration{mavsdk::ComponentType::GroundStation};
+              (void)config;
+              std_msgs::msg::Float32 message{};
+              (void)message;
+          }
+          '@ | Set-Content -Path src/ci_integration.cpp -Encoding ascii
+      - name: Build and run main.cpp
+        shell: pwsh
+        run: |
+          $output = & ./dev.cmd run
+          $output | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw "dev run failed" }
+          if (($output -join "`n") -notmatch "Hello World") { throw "Expected original main.cpp output missing" }

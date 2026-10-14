@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ArtunIHA: setup",
+      "type": "shell",
+      "command": "./dev.cmd setup",
+      "problemMatcher": []
+    },
+    {
+      "label": "ArtunIHA: run",
+      "type": "shell",
+      "command": "./dev.cmd run",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "ArtunIHA: doctor",
+      "type": "shell",
+      "command": "./dev.cmd doctor",
+      "problemMatcher": []
+    }
+  ]
+}
