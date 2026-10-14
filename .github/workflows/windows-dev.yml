@@ -9,7 +9,7 @@ on:
 jobs:
   smoke:
     runs-on: windows-2022
-    timeout-minutes: 45
+    timeout-minutes: 65
     steps:
       - uses: actions/checkout@v6
       - name: Setup toolchain and IntelliSense configuration
@@ -23,6 +23,9 @@ jobs:
       - name: Install official MAVSDK C++ release
         shell: pwsh
         run: ./dev.cmd install mavsdk
+      - name: Install project-local ROS 2 via Pixi
+        shell: pwsh
+        run: ./dev.cmd install ros2
       - name: Build and run main.cpp
         shell: pwsh
         run: |
