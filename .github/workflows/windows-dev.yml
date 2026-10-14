@@ -24,6 +24,11 @@ jobs:
         run: |
           ./dev.cmd add ci_smoke.cpp
           ./dev.cmd install fmt
+          @'
+          #include <fmt/format.h>
+          #include <string>
+          std::string artun_fmt_link_probe() { return fmt::format("value={}", 42); }
+          '@ | Set-Content -Path src/ci_smoke.cpp -Encoding ascii
       - name: Install official MAVSDK C++ release
         shell: pwsh
         run: ./dev.cmd install mavsdk
