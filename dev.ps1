@@ -129,7 +129,10 @@ function Ensure-Mavsdk {
     "https://api.github.com/repos/mavlink/MAVSDK/releases/tags/$((Get-Content $lock -Raw).Trim())"
   } else { "https://api.github.com/repos/mavlink/MAVSDK/releases/latest" }
   $release = Invoke-RestMethod -Uri $api -Headers @{ "User-Agent" = "ArtunIHA-dev" }
-  $asset = $release.assets | Where-Object { $_.name -match "(?i)mavsdk.*windows.*x64.*release.*\.zip$" } | Select-Object -First 1
+  $asset = $release.assets | Where-Object { $_.name -eq "mavsdk-windows-x64.zip" } | Select-Object -First 1
+  if (-not $asset) {
+    $asset = $release.assets | Where-Object { $_.name -eq "mavsdk-windows-x64-RelWithDebInfo.zip" } | Select-Object -First 1
+  }
   if (-not $asset) { throw "No matching Windows x64 C++ MAVSDK archive in the latest official release." }
   New-Item -Force -ItemType Directory $dest | Out-Null
   $archive = Join-Path $state "mavsdk.zip"
