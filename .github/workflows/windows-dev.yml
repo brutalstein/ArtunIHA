@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: windows-dev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke:
     runs-on: windows-2022
@@ -26,6 +30,22 @@ jobs:
       - name: Install project-local ROS 2 via Pixi
         shell: pwsh
         run: ./dev.cmd install ros2
+      - name: Verify ROS 2 and MAVSDK C++ headers and linkage
+        shell: pwsh
+        run: |
+          @'
+          #include <rclcpp/rclcpp.hpp>
+          #include <std_msgs/msg/float32.hpp>
+          #include <mavsdk/mavsdk.hpp>
+          void artun_ci_compile_probe() {
+              auto options = rclcpp::NodeOptions{};
+              (void)options;
+              auto config = mavsdk::Mavsdk::Configuration{mavsdk::ComponentType::GroundStation};
+              (void)config;
+              std_msgs::msg::Float32 message{};
+              (void)message;
+          }
+          '@ | Set-Content -Path src/ci_integration.cpp -Encoding ascii
       - name: Build and run main.cpp
         shell: pwsh
         run: |
