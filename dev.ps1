@@ -230,11 +230,11 @@ try {
     "setup" {
       Ensure-Core
       Ensure-Vcpkg
-      if (Test-Path (Join-Path $root "pixi.toml")) { Ensure-Ros }
       if (-not $ci) {
         Ensure-Mavsdk
         Ensure-Ros
       } else {
+        if (Test-Path (Join-Path $root "pixi.toml")) { Ensure-Ros }
         if (Test-Path (Join-Path $root "mavsdk.version")) { Ensure-Mavsdk }
       }
       Configure
