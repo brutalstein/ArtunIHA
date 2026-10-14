@@ -32,7 +32,10 @@ function Tool([string]$name) {
       (Join-Path $env:LOCALAPPDATA "Programs\Microsoft VS Code\bin\code.cmd")
       (Join-Path $pf "Microsoft VS Code\bin\code.cmd")
     }
-    "pixi" { (Join-Path $env:USERPROFILE ".pixi\bin\pixi.exe") }
+    "pixi" {
+      (Join-Path $tools "pixi\pixi.exe")
+      (Join-Path $env:USERPROFILE ".pixi\bin\pixi.exe")
+    }
     "vswhere" { (Join-Path $pf86 "Microsoft Visual Studio\Installer\vswhere.exe") }
   }
   foreach ($p in $candidates) { if ($p -and (Test-Path $p)) { return $p } }
@@ -99,8 +102,24 @@ function Ensure-Vcpkg {
   }
 }
 function Ensure-Pixi {
-  if (-not (Tool "pixi")) { Winget "prefix-dev.pixi" }
-  if (-not (Tool "pixi")) { throw "Pixi not found after installation. Rerun setup in a new terminal if PATH has not propagated." }
+  if (Tool "pixi") { return }
+  # Portable official x64 executable: no winget, admin rights or restart required.
+  $release = Invoke-RestMethod -Uri "https://api.github.com/repos/prefix-dev/pixi/releases/latest" -Headers @{ "User-Agent" = "ArtunIHA-dev" }
+  $asset = $release.assets | Where-Object { $_.name -eq "pixi-x86_64-pc-windows-msvc.exe" } | Select-Object -First 1
+  if (-not $asset) { throw "Official Pixi x64 Windows executable not found in latest release." }
+  $dest = Join-Path $tools "pixi"
+  New-Item -Force -ItemType Directory $dest | Out-Null
+  $binary = Join-Path $dest "pixi.exe"
+  Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $binary -Headers @{ "User-Agent" = "ArtunIHA-dev" }
+  if ($asset.digest -match "^sha256:([0-9a-fA-F]{64})$") {
+    $expected = $Matches[1]
+    if ((Get-FileHash $binary -Algorithm SHA256).Hash -ne $expected) {
+      Remove-Item $binary -Force -ErrorAction SilentlyContinue
+      throw "Pixi archive checksum failed."
+    }
+  }
+  if (-not (Tool "pixi")) { throw "Portable Pixi could not be installed." }
+  Write-Host "Installed official Pixi $($release.tag_name) locally."
 }
 function Ensure-Ros {
   Ensure-Pixi
@@ -138,6 +157,12 @@ function Ensure-Mavsdk {
   $archive = Join-Path $state "mavsdk.zip"
   try {
     Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $archive -Headers @{ "User-Agent" = "ArtunIHA-dev" }
+    if ($asset.digest -match "^sha256:([0-9a-fA-F]{64})$") {
+      $expected = $Matches[1]
+      if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne $expected) {
+        throw "MAVSDK archive checksum failed."
+      }
+    }
     Expand-Archive -Path $archive -DestinationPath $dest -Force
   } finally { Remove-Item $archive -ErrorAction SilentlyContinue }
   if (-not (Get-ChildItem $dest -Filter "MAVSDKConfig.cmake" -Recurse | Select-Object -First 1)) {
