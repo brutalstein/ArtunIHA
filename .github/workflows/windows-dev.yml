@@ -1,0 +1,29 @@
+name: Windows dev automation smoke
+
+on:
+  push:
+    branches: [main, feature/windows-dev-automation]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup toolchain and IntelliSense configuration
+        shell: pwsh
+        run: ./dev.cmd setup --ci
+      - name: Add C++ file and vcpkg package
+        shell: pwsh
+        run: |
+          ./dev.cmd add ci_smoke.cpp
+          ./dev.cmd install fmt
+      - name: Build and run main.cpp
+        shell: pwsh
+        run: |
+          $output = & ./dev.cmd run
+          $output | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw "dev run failed" }
+          if (($output -join "`n") -notmatch "Hello World") { throw "Expected original main.cpp output missing" }
