@@ -142,7 +142,7 @@ channels = ["https://prefix.dev/robostack-jazzy", "https://prefix.dev/conda-forg
 platforms = ["win-64"]
 
 [dependencies]
-ros-jazzy-desktop = "*"
+ros-jazzy-ros-base = "*"
 '@
     Save-Text $pixiManifest $pixiText
   }
