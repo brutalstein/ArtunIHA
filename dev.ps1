@@ -321,7 +321,7 @@ try {
     foreach ($pkg in $found) { $lines.Add("find_package($pkg CONFIG QUIET)") }
     foreach ($target in $linked) {
       $lines.Add("if(TARGET $target)")
-      $lines.Add("  target_link_libraries(ArtunIHA PRIVATE $target)")
+      $lines.Add("  target_link_libraries(ArtunIHA $target)")
       $lines.Add("endif()")
     }
   }
