@@ -12,19 +12,21 @@ Open the cloned repository in VS Code and run commands from the project root (Po
 ./dev install mavsdk
 ./dev install fmt
 ./dev add navigation.cpp
+./dev add telemetry.cpp --no-header
+./dev sync
 ./dev run
 ./dev doctor
 ```
 
-If Windows PowerShell does not resolve `./dev`, use `.\dev.cmd` (same commands). Run `setup` first. It installs missing Git, CMake, VS Code and the Visual Studio **2022 C++ workload** via official winget packages (may need administrator permission), bootstraps vcpkg under `.artun/`, installs VS Code C/C++ and CMake Tools extensions, and configures the project. It also provisions project-local **ROS 2 Jazzy** (portable Pixi + RoboStack) and official **MAVSDK C++** on regular Windows PCs so a fresh clone has all primary dependencies. In CI `./dev.cmd setup --ci` skips those large optional downloads because CI tests install them explicitly.
+If Windows PowerShell does not resolve `./dev`, use `.\dev.cmd` (same commands). Run `setup` first. It installs missing Git, VS Code and the Visual Studio **2022 C++ workload** via official winget packages (may need administrator permission), installs a verified portable CMake **3.31.10** and bootstraps vcpkg under `.artun/`, installs VS Code C/C++ and CMake Tools extensions, and configures the project. It also provisions project-local **ROS 2 Jazzy** (portable Pixi + RoboStack) and official **MAVSDK C++** on regular Windows PCs so a fresh clone has all primary dependencies. In CI `./dev.cmd setup --ci` skips those large optional downloads because CI tests install them explicitly.
 
 `install ros2` uses **RoboStack Jazzy via a verified portable Pixi executable** in project-local `.pixi/`. `install mavsdk` downloads the official newest Windows x64 C++ *release archive* from the MAVSDK GitHub releases and records its version in `mavsdk.version`. A normal `install fmt` adds a vcpkg manifest dependency and reconfigures CMake. Other valid vcpkg ports are accepted. After installation, the script reads the package's official vcpkg `usage` hints and generates `.artun/autolink.cmake` (with validated `find_package` and `target_link_libraries` statements); package headers and compile flags are passed to VS Code through CMake Tools. Packages with custom or missing CMake metadata may still need explicit linkage: the script does not guess incompatible ABI/library targets.
 
-`add name.cpp` only creates `src/name.cpp`. No extra header is generated unless you write one. CMake automatically includes all `src/**/*.cpp` files. `run` performs configure, Release build and executes `main.cpp`'s program. The build will fail normally if C++ code itself has errors.
+`add name.cpp` creates `src/name.cpp` and its public `src/name.hpp`; the generated definition is declared in namespace `artun`. For internal-only modules use `./dev add name.cpp --no-header`. Include shared APIs in other modules using `#include "name.hpp"`. CMake automatically detects source additions and deletions under `src/` via `GLOB_RECURSE CONFIGURE_DEPENDS`; `./dev sync` refreshes its configuration without running the executable. `run` performs configure, Release build and executes `main.cpp`'s program. The build will fail normally if C++ code itself has errors.
 
 ## VS Code / IntelliSense
 
-Workspace settings use `ms-vscode.cmake-tools` as the C/C++ configuration provider. The included `CMakePresets.json` selects x64 MSVC; toolchain and SDK paths are resolved from the **repository root**, not a developer's username. After installing a package, `dev` triggers CMake reconfiguration; CMake Tools supplies compiler settings and includes. On the **first installation** of VS Code extensions, VS Code may require an extension activation/window reload. No automation can promise that genuinely invalid code or every unsupported third-party package is free of red squiggles.
+Workspace settings use `ms-vscode.cmake-tools` as the C/C++ configuration provider. The included `CMakePresets.json` selects x64 MSVC; toolchain and SDK paths are resolved from the **repository root**, not a developer's username. After installing a package, `dev` triggers CMake reconfiguration and uses `${workspaceFolder}/.artun/tools/cmake/bin/cmake.exe` rather than any MSYS2/Conda CMake in PATH; CMake Tools supplies compiler settings and includes. On the **first installation** of VS Code extensions, VS Code may require an extension activation/window reload. No automation can promise that genuinely invalid code or every unsupported third-party package is free of red squiggles.
 
 ## Reproducibility / portability
 
@@ -46,3 +48,7 @@ Workspace settings use `ms-vscode.cmake-tools` as the C/C++ configuration provid
 ## Scope
 
 These changes provide **development automations only**. No flight-control logic, ROS 2 application code or simulation behavior was changed. Validate the native toolchain on Windows and hardware safety in SITL before operating a drone.
+
+### Windows SSL / proxy retry
+
+The script pre-fetches the official 7-Zip `7zr.exe` helper using Windows TLS into vcpkg's local download cache; vcpkg still verifies its expected file hash. This addresses machines where vcpkg's embedded curl fails with code 35 although PowerShell downloads succeed. If all HTTPS connections fail, check Windows proxy/VPN/antivirus TLS interception and retry `./dev setup`. The script never disables SSL verification.

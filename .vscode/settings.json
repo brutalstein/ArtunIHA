@@ -4,13 +4,13 @@
   "C_Cpp.default.cppStandard": "c++20",
   "C_Cpp.default.includePath": [
     "${workspaceFolder}/src/**",
-    "${workspaceFolder}/.artun/vcpkg_installed/x64-windows/include/**",
-    "${workspaceFolder}/.artun/sdk/mavsdk/**",
     "${workspaceFolder}/.pixi/envs/default/Library/include/**"
   ],
   "cmake.useCMakePresets": "always",
   "cmake.configureOnOpen": true,
   "cmake.automaticReconfigure": true,
   "cmake.configureOnEdit": true,
-  "cmake.buildDirectory": "${workspaceFolder}/.artun/build"
+  "cmake.buildDirectory": "${workspaceFolder}/.artun/build",
+  "cmake.cmakePath": "${workspaceFolder}/.artun/tools/cmake/bin/cmake.exe",
+  "cmake.configurePreset": "windows-x64"
 }

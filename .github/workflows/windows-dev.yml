@@ -16,6 +16,13 @@ jobs:
     timeout-minutes: 65
     steps:
       - uses: actions/checkout@v6
+      - name: Validate PowerShell syntax before executing
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Get-Location) 'dev.ps1'), [ref]$tokens, [ref]$errors)
+          if ($errors.Count) { $errors | Out-Host; throw "PowerShell parse failed" }
       - name: Setup toolchain and IntelliSense configuration
         shell: pwsh
         run: ./dev.cmd setup --ci
@@ -23,12 +30,28 @@ jobs:
         shell: pwsh
         run: |
           ./dev.cmd add ci_smoke.cpp
+          if (!(Test-Path src/ci_smoke.hpp)) { throw "Header was not generated" }
           ./dev.cmd install fmt
           @'
+          #include "ci_smoke.hpp"
           #include <fmt/format.h>
           #include <string>
-          std::string artun_fmt_link_probe() { return fmt::format("value={}", 42); }
+          namespace artun {
+            void ci_smoke() { (void)fmt::format("value={}", 42); }
+          }
           '@ | Set-Content -Path src/ci_smoke.cpp -Encoding ascii
+      - name: Verify add-delete-add and automatic CMake regeneration
+        shell: pwsh
+        run: |
+          ./dev.cmd run
+          Remove-Item src/ci_smoke.cpp, src/ci_smoke.hpp
+          ./dev.cmd sync
+          ./dev.cmd run
+          ./dev.cmd add again.cpp --no-header
+          if (Test-Path src/again.hpp) { throw "Unexpected header in --no-header mode" }
+          ./dev.cmd run
+          Remove-Item src/again.cpp
+          ./dev.cmd run
       - name: Install official MAVSDK C++ release
         shell: pwsh
         run: ./dev.cmd install mavsdk
