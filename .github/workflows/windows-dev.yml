@@ -20,6 +20,9 @@ jobs:
         run: |
           ./dev.cmd add ci_smoke.cpp
           ./dev.cmd install fmt
+      - name: Install official MAVSDK C++ release
+        shell: pwsh
+        run: ./dev.cmd install mavsdk
       - name: Build and run main.cpp
         shell: pwsh
         run: |
