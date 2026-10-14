@@ -2,7 +2,7 @@ name: Windows dev automation smoke
 
 on:
   push:
-    branches: [main, feature/windows-dev-automation]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup toolchain and IntelliSense configuration
         shell: pwsh
         run: ./dev.cmd setup --ci
