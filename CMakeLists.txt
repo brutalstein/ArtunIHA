@@ -16,7 +16,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/.artun/autolink.cmake" OPTIONAL)
 
 find_package(MAVSDK CONFIG QUIET)
 if(MAVSDK_FOUND)
-  target_link_libraries(ArtunIHA PRIVATE MAVSDK::mavsdk)
+  target_link_libraries(ArtunIHA MAVSDK::mavsdk)
 endif()
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/pixi.toml")
