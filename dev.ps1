@@ -31,6 +31,10 @@ function Refresh-Path {
               [Environment]::GetEnvironmentVariable("Path", "User") + ";" + $env:Path
 }
 function Tool([string]$name) {
+  if ($name -eq "cmake") {
+    $portable = Join-Path $tools "cmake\bin\cmake.exe"
+    if (Test-Path $portable) { return $portable }
+  }
   $found = Get-Command $name -ErrorAction SilentlyContinue
   if ($found) { return $found.Source }
   $pf = [Environment]::GetEnvironmentVariable("ProgramFiles")
@@ -80,7 +84,6 @@ function Ensure-BuildTools {
 }
 function Ensure-Core {
   if (-not (Tool "git")) { Winget "Git.Git" }
-  if (-not (Tool "cmake")) { Winget "Kitware.CMake" }
   Ensure-BuildTools
   if (-not $ci) {
     if (-not (Tool "code")) { Winget "Microsoft.VisualStudioCode" }
@@ -92,6 +95,36 @@ function Ensure-Core {
     } else { throw "VS Code CLI not detected; open VS Code once and rerun ./dev setup." }
   }
 }
+function Ensure-CMake {
+  $portable = Join-Path $tools "cmake\bin\cmake.exe"
+  if (Test-Path $portable) { return }
+  $version = "3.31.10"
+  $release = Invoke-RestMethod -Uri "https://api.github.com/repos/Kitware/CMake/releases/tags/v$version" -Headers @{ "User-Agent" = "ArtunIHA-dev" }
+  $asset = $release.assets | Where-Object { $_.name -eq "cmake-$version-windows-x86_64.zip" } | Select-Object -First 1
+  if (-not $asset -or $asset.digest -notmatch "^sha256:([a-fA-F0-9]{64})$") {
+    throw "Official portable CMake release or SHA256 digest not available."
+  }
+  $expected = $Matches[1]
+  New-Item -ItemType Directory -Force $state | Out-Null
+  $archive = Join-Path $state "cmake.zip"
+  $unpack = Join-Path $state "cmake-unpack"
+  try {
+    Invoke-WebRequest $asset.browser_download_url -OutFile $archive -UseBasicParsing
+    if ((File-SHA256 $archive) -ne $expected) { throw "CMake SHA256 mismatch" }
+    Expand-Archive $archive $unpack -Force
+    $exe = Get-ChildItem $unpack -Filter cmake.exe -Recurse -File | Where-Object { $_.Directory.Name -eq "bin" } | Select-Object -First 1
+    if (-not $exe) { throw "Downloaded CMake archive has no bin/cmake.exe" }
+    $source = Split-Path $exe.DirectoryName -Parent
+    $destination = Join-Path $tools "cmake"
+    if (Test-Path $destination) { Remove-Item $destination -Recurse -Force }
+    Move-Item $source $destination
+  } finally {
+    Remove-Item $archive -ErrorAction SilentlyContinue
+    Remove-Item $unpack -Recurse -Force -ErrorAction SilentlyContinue
+  }
+  Write-Host "Pinned portable CMake $version ready (ignores MSYS2/Conda PATH)."
+}
+
 function Ensure-Vcpkg {
   New-Item -Force -ItemType Directory $tools | Out-Null
   $git = Tool "git"
@@ -101,6 +134,20 @@ function Ensure-Vcpkg {
   $exe = Join-Path $vcpkg "vcpkg.exe"
   if (-not (Test-Path $exe)) {
     Exec (Join-Path $vcpkg "bootstrap-vcpkg.bat") @("-disableMetrics")
+  }
+  # vcpkg may fail with curl/Schannel mismatch retrieving its 7zr bootstrapper.
+  # Pre-fetch from the official 7-Zip release with PowerShell's Windows TLS stack;
+  # vcpkg verifies its own expected content hash when consumed.
+  $env:VCPKG_DOWNLOADS = Join-Path $vcpkg "downloads"
+  New-Item -ItemType Directory -Force $env:VCPKG_DOWNLOADS | Out-Null
+  $seven = Join-Path $env:VCPKG_DOWNLOADS "211a9748-7zr.exe"
+  if (-not (Test-Path $seven)) {
+    try {
+      Invoke-WebRequest -Uri "https://github.com/ip7z/7zip/releases/download/26.03/7zr.exe" -OutFile $seven -UseBasicParsing
+    } catch {
+      Remove-Item $seven -Force -ErrorAction SilentlyContinue
+      Write-Warning "7zr prefetch unavailable. vcpkg will attempt the original URL."
+    }
   }
   $obj = Get-Content $manifest -Raw | ConvertFrom-Json
   if (-not ($obj.PSObject.Properties.Name -contains "builtin-baseline")) {
@@ -223,6 +270,19 @@ function Sync-VcpkgLinks {
 
 function Configure {
   $cmake = Tool "cmake"
+  $portable = Join-Path $tools "cmake\bin\cmake.exe"
+  if (-not (Test-Path $portable)) { throw "Run ./dev setup first: portable CMake missing." }
+  $env:VCPKG_DOWNLOADS = Join-Path $vcpkg "downloads"
+  $cache = Join-Path $build "CMakeCache.txt"
+  if (Test-Path $cache) {
+    $cached = Get-Content $cache -Raw
+    if ($cached -notmatch 'CMAKE_GENERATOR:INTERNAL=Visual Studio 17 2022' -or
+        ($cached -match 'CMAKE_COMMAND:INTERNAL=([^\r\n]+)' -and
+         $Matches[1].Replace("\","/") -ne $portable.Replace("\","/"))) {
+      Write-Host "Removing stale MSYS2/Conda CMake cache..."
+      Remove-Item $build -Recurse -Force
+    }
+  }
   if (-not (Test-Path (Join-Path $vcpkg "scripts\buildsystems\vcpkg.cmake"))) {
     throw "Run ./dev setup first."
   }
@@ -276,6 +336,7 @@ try {
   switch ($Action.ToLowerInvariant()) {
     "setup" {
       Ensure-Core
+      Ensure-CMake
       Ensure-Vcpkg
       if (-not $ci) {
         Ensure-Mavsdk
