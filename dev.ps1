@@ -368,14 +368,43 @@ try {
       Write-Host "Installed $Name. IntelliSense configuration refreshed."
     }
     "add" {
-      if ($Name -notmatch "^[A-Za-z_][A-Za-z0-9_-]*\.cpp$") {
-        throw "Usage: ./dev add example.cpp (a file name only; all code lives in src/)"
+      if ($Name -notmatch '^[A-Za-z_][A-Za-z0-9_]*\.cpp
+    "run" { Run-App }
+    "doctor" {
+      Write-Host "Windows: $([Environment]::OSVersion.VersionString)"
+      foreach ($name in @("winget","git","cmake","code","pixi","vswhere")) { Write-Host "$name : $(Tool $name)" }
+      Write-Host "vcpkg: $(Test-Path (Join-Path $vcpkg 'vcpkg.exe'))"
+      Write-Host "ROS 2 environment: $(Test-Path (Join-Path $root '.pixi\envs\default'))"
+    }
+    default { Write-Host "Commands: ./dev setup | install <ros2|mavsdk|port> | add <name.cpp> [--no-header] | sync | run | doctor" }
+  }
+} catch {
+  Write-Error $_
+  exit 1
+}
+) {
+        throw "Usage: ./dev add example.cpp [--no-header]. Use C++ identifier-style names."
       }
-      $dest = Join-Path $root "src\$Name"
-      if (Test-Path $dest) { throw "Already exists: $Name" }
-      Save-Text $dest "// $Name`n"
+      $stem = [IO.Path]::GetFileNameWithoutExtension($Name)
+      $src = Join-Path $root "src"
+      New-Item -ItemType Directory -Force $src | Out-Null
+      $cpp = Join-Path $src $Name
+      $hpp = Join-Path $src "$stem.hpp"
+      if ((Test-Path $cpp) -or (Test-Path $hpp)) { throw "Refusing to overwrite src/$stem.cpp or src/$stem.hpp" }
+      $header = -not ($Rest -contains "--no-header")
+      if ($header) {
+        Save-Text $hpp "#pragma once`n`nnamespace artun {`nvoid $stem();`n}`n"
+        Save-Text $cpp "#include `"$stem.hpp`"`n`nnamespace artun {`nvoid $stem() {}`n}`n"
+        Write-Host "Created src/$Name and src/$stem.hpp"
+      } else {
+        Save-Text $cpp "// Implementation of $stem`n"
+        Write-Host "Created src/$Name (no header requested)"
+      }
       if (Test-Path (Join-Path $vcpkg "vcpkg.exe")) { Configure }
-      Write-Host "Created src/$Name (included automatically by CMake)."
+    }
+    "sync" {
+      Configure
+      Write-Host "CMake sources and dependencies synchronized."
     }
     "run" { Run-App }
     "doctor" {
