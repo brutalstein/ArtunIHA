@@ -1,54 +1,81 @@
-# ArtunIHA — Windows C++ development
+<div align="center">
 
-Native **Windows 10/11 x64**, **MSVC 2022**, **CMake**, **vcpkg**, optional **ROS 2 Jazzy (RoboStack/Pixi)** and **MAVSDK C++**. Existing `main.cpp` remains the entry point. All additional C++ files live in `src/`.
+# ✈️ ARTUN İHA
 
-## Commands
+### C++ geliştirmeye odaklan. Kurulumu, dosyaları ve derlemeyi `dev` yönetsin.
 
-Open the cloned repository in VS Code and run commands from the project root (PowerShell terminal):
+**Windows 10 / 11 · x64 · VS Code**
+
+![Geliştirme Ortamı](https://img.shields.io/badge/Geliştirme-Ortamı%20Hazır-167D67?style=for-the-badge)
+![Bağımlılıklar](https://img.shields.io/badge/Paketler-Otomatik%20Yönetim-2563EB?style=for-the-badge)
+![Derleme](https://img.shields.io/badge/Derleme-Tek%20Komut-7C3AED?style=for-the-badge)
+
+</div>
+
+---
+
+## 🚀 Başlamak için tek komut
+
+VS Code'da proje klasörünü aç, terminale şunu yaz:
 
 ```powershell
 ./dev setup
-./dev install ros2
-./dev install mavsdk
-./dev install fmt
-./dev add navigation.cpp
-./dev add telemetry.cpp --no-header
-./dev sync
-./dev run
-./dev doctor
 ```
 
-If Windows PowerShell does not resolve `./dev`, use `.\dev.cmd` (same commands). Run `setup` first. It installs missing Git, VS Code and the Visual Studio **2022 C++ workload** via official winget packages (may need administrator permission), installs a verified portable CMake **3.31.10** and bootstraps vcpkg under `.artun/`, installs VS Code C/C++ and CMake Tools extensions, and configures the project. It also provisions project-local **ROS 2 Jazzy** (portable Pixi + RoboStack) and official **MAVSDK C++** on regular Windows PCs so a fresh clone has all primary dependencies. In CI `./dev.cmd setup --ci` skips those large optional downloads because CI tests install them explicitly.
+Bu komut, C++ geliştirme araçlarını ve gerekli kütüphaneleri kurar; **ROS 2, MAVSDK, CMake ve VS Code IntelliSense** yapılandırmasını hazırlar. Eksik araçları tamamlar, önceden kurulanları yeniden indirmemeye çalışır.
 
-`install ros2` uses **RoboStack Jazzy via a verified portable Pixi executable** in project-local `.pixi/`. `install mavsdk` downloads the official newest Windows x64 C++ *release archive* from the MAVSDK GitHub releases and records its version in `mavsdk.version`. A normal `install fmt` adds a vcpkg manifest dependency and reconfigures CMake. Other valid vcpkg ports are accepted. After installation, the script reads the package's official vcpkg `usage` hints and generates `.artun/autolink.cmake` (with validated `find_package` and `target_link_libraries` statements); package headers and compile flags are passed to VS Code through CMake Tools. Packages with custom or missing CMake metadata may still need explicit linkage: the script does not guess incompatible ABI/library targets.
+> **İlk kurulum için** internet bağlantısı gerekir. Bazı Windows geliştirme araçlarının kurulumu yönetici izni isteyebilir.
 
-`add name.cpp` creates `src/name.cpp` and its public `src/name.hpp`; the generated definition is declared in namespace `artun`. For internal-only modules use `./dev add name.cpp --no-header`. Include shared APIs in other modules using `#include "name.hpp"`. CMake automatically detects source additions and deletions under `src/` via `GLOB_RECURSE CONFIGURE_DEPENDS`; `./dev sync` refreshes its configuration without running the executable. `run` performs configure, Release build and executes `main.cpp`'s program. The build will fail normally if C++ code itself has errors.
+## 🧰 Komutlar
 
-## VS Code / IntelliSense
+| Komut | Ne yapar? |
+|:--|:--|
+| `./dev setup` | Bilgisayarı projede C++ geliştirmeye hazırlar. |
+| `./dev install ros2` | ROS 2 ortamını kurar veya hazırlar. |
+| `./dev install mavsdk` | MAVSDK C++ kütüphanesini kurar. |
+| `./dev install fmt` | İstediğin C++ paketini kurar ve uygun olduğunda derlemeye bağlar. `fmt` yerine başka bir paket adı yazabilirsin. |
+| `./dev add ornek.cpp` | `src/` içinde `ornek.cpp` ve `ornek.hpp` dosyalarını birlikte oluşturur. |
+| `./dev add ornek.cpp --no-header` | Yalnızca `ornek.cpp` oluşturur. |
+| `./dev sync` | Eklediğin veya sildiğin dosyalara göre CMake yapılandırmasını yeniler. |
+| `./dev run` | Projeyi güncel dosyalarla derler ve kökteki `main.cpp` programını çalıştırır. |
+| `./dev doctor` | Geliştirme ortamındaki kurulu araçların durumunu gösterir. |
 
-Workspace settings use `ms-vscode.cmake-tools` as the C/C++ configuration provider. The included `CMakePresets.json` selects x64 MSVC; toolchain and SDK paths are resolved from the **repository root**, not a developer's username. After installing a package, `dev` triggers CMake reconfiguration and uses `${workspaceFolder}/.artun/tools/cmake/bin/cmake.exe` rather than any MSYS2/Conda CMake in PATH; CMake Tools supplies compiler settings and includes. On the **first installation** of VS Code extensions, VS Code may require an extension activation/window reload. No automation can promise that genuinely invalid code or every unsupported third-party package is free of red squiggles.
+<details>
+<summary><strong>💡 Dosya yönetimi nasıl çalışıyor?</strong></summary>
 
-## Reproducibility / portability
+- `main.cpp`, programın başlangıç dosyasıdır.
+- Yeni C++ kodlarını `src/` klasörüne yazarsın.
+- Bir `.cpp` dosyasını VS Code'dan elle oluşturabilir veya silebilirsin. `./dev run`, kaynak listesini yeniden kontrol eder; yalnızca yapılandırmayı yenilemek için `./dev sync` kullanabilirsin.
+- Başka dosyalardan kullanılacak bir işlev yazıyorsan `.hpp` dosyası işine yarar. `add` komutu bunu senin için oluşturur.
 
-- Commit `vcpkg.json` changes after initial setup: it pins the current vcpkg baseline.
-- Commit `pixi.toml` and **`pixi.lock`** after `install ros2` to pin the ROS 2 environment. Do not commit `.pixi/`.
-- Commit `mavsdk.version` after `install mavsdk`. Do not commit `.artun/`.
-- First setup needs Internet, sufficient disk space, Windows package manager and permission to install build tools; Windows 10/11 differences and third-party compiler ABI constraints may require troubleshooting. The scripts target Windows x64 only, not cross-OS execution.
-- ROS 2 is provided by **RoboStack**, not Microsoft's vcpkg, and does not require WSL2. RoboStack has win-64 artifacts, but individual ROS packages may be unavailable or conflict with other prebuilt libraries.
-- After adding a new source file, `dev add` reconfigures the build so VS Code picks it up. Re-running `dev setup` is safe.
+</details>
 
-## Implementation and upstream references
+## ⚡ Tek örnek: Yeni bir modül oluştur ve çalıştır
 
-- [vcpkg manifests and version baselines](https://learn.microsoft.com/en-us/vcpkg/users/manifests)
-- [VS Code CMake Tools + C/C++ IntelliSense configuration provider](https://code.visualstudio.com/docs/cpp/customize-cpp-settings)
-- [RoboStack Pixi installation (Windows)](https://robostack.github.io/GettingStarted.html)
-- [Official MAVSDK Windows C++ install](https://mavsdk.mavlink.io/main/en/cpp/quickstart.html)
-- [Windows Visual Studio command-line install](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio)
+```powershell
+./dev setup
+./dev add navigation.cpp
+./dev run
+```
 
-## Scope
+**Sonuç:** `navigation.cpp` ve `navigation.hpp` otomatik oluşturulur, proje bunları derlemeye dahil eder ve `main.cpp` çalıştırılır.
 
-These changes provide **development automations only**. No flight-control logic, ROS 2 application code or simulation behavior was changed. Validate the native toolchain on Windows and hardware safety in SITL before operating a drone.
+```text
+ArtunIHA/
+├── main.cpp
+└── src/
+    ├── navigation.cpp
+    └── navigation.hpp
+```
 
-### Windows SSL / proxy retry
+`navigation.hpp` içindeki işlevleri başka bir C++ dosyasında kullanmak için `#include "navigation.hpp"` yazabilirsin.
 
-The script pre-fetches the official 7-Zip `7zr.exe` helper using Windows TLS into vcpkg's local download cache; vcpkg still verifies its expected file hash. This addresses machines where vcpkg's embedded curl fails with code 35 although PowerShell downloads succeed. If all HTTPS connections fail, check Windows proxy/VPN/antivirus TLS interception and retry `./dev setup`. The script never disables SSL verification.
+---
+
+<div align="center">
+
+**Sen kodunu yaz, gerisini `./dev` halletsin.**
+
+<sub>Komutlar proje ana klasöründe çalıştırılır. `./dev` açılmazsa `.\dev.cmd` kullanabilirsin.</sub>
+
+</div>
