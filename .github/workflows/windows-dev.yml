@@ -55,6 +55,13 @@ jobs:
       - name: Install official MAVSDK C++ release
         shell: pwsh
         run: ./dev.cmd install mavsdk
+      - name: Verify MAVSDK IntelliSense headers
+        shell: pwsh
+        run: |
+          $settings = Get-Content .vscode/settings.json -Raw | ConvertFrom-Json
+          $paths = @($settings.'C_Cpp.default.includePath')
+          if ($paths -notcontains '${workspaceFolder}/.artun/sdk/mavsdk/include/**') { throw "MAVSDK IntelliSense include path missing" }
+          if (-not (Test-Path .artun/sdk/mavsdk/include/mavsdk/mavsdk.hpp)) { throw "MAVSDK C++ v4 header missing" }
       - name: Install project-local ROS 2 via Pixi
         shell: pwsh
         run: ./dev.cmd install ros2

@@ -4,7 +4,8 @@
   "C_Cpp.default.cppStandard": "c++20",
   "C_Cpp.default.includePath": [
     "${workspaceFolder}/src/**",
-    "${workspaceFolder}/.pixi/envs/default/Library/include/**"
+    "${workspaceFolder}/.pixi/envs/default/Library/include/**",
+    "${workspaceFolder}/.artun/sdk/mavsdk/include/**"
   ],
   "cmake.useCMakePresets": "always",
   "cmake.configureOnOpen": true,
