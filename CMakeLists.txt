@@ -14,10 +14,8 @@ if(DEFINED VCPKG_INSTALLED_DIR AND EXISTS "${VCPKG_INSTALLED_DIR}/x64-windows/in
 endif()
 include("${CMAKE_CURRENT_SOURCE_DIR}/.artun/autolink.cmake" OPTIONAL)
 
-find_package(MAVSDK CONFIG QUIET)
-if(MAVSDK_FOUND)
-  target_link_libraries(ArtunIHA MAVSDK::mavsdk)
-endif()
+find_package(MAVSDK CONFIG REQUIRED)
+target_link_libraries(ArtunIHA MAVSDK::mavsdk)
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/pixi.toml")
   list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/.pixi/envs/default/Library")
