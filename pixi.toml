@@ -1,0 +1,7 @@
+[workspace]
+name = "artun-iha-ros2"
+channels = ["https://prefix.dev/robostack-jazzy", "https://prefix.dev/conda-forge"]
+platforms = ["win-64"]
+
+[dependencies]
+ros-jazzy-ros-base = "*"
